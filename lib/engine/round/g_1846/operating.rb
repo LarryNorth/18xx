@@ -77,14 +77,16 @@ module Engine
         private
 
         def ignore_action?(action)
-          return false if action.is_a?(Action::SellShares) && action.entity.corporation?
-
           case action
+          when Action::Bankrupt
+            true
           when Action::PlaceToken, Action::LayTile
-            return true if !skip_token || !skip_track
+            true if !skip_token || !skip_track
+          when Action::SellShares
+            action.entity.corporation? ? false : super(action)
+          else
+            super(action)
           end
-
-          super
         end
 
         def count_actions(type)
@@ -92,12 +94,15 @@ module Engine
         end
 
         def skip_token
+          return true if no_president?
           return true if count_actions(Action::PlaceToken).positive?
 
           super
         end
 
         def skip_track
+          return true if no_president?
+
           free = false
 
           @current_entity.abilities(:tile_lay) do |ability|
@@ -110,10 +115,24 @@ module Engine
         end
 
         def skip_issue
+          return true if no_president?
+
           issuable_shares.empty? && redeemable_shares.empty?
         end
 
         def skip_dividend
+          if no_president?
+            process_dividend(Action::Dividend.new(
+              @current_entity,
+              kind: 'withhold',
+            ))
+            if @current_entity.trains.empty?
+              @log << "#{current_entity.name} has no president and no train"
+              change_share_price(0)
+            end
+            return true
+          end
+
           return super if @current_entity.corporation?
 
           revenue = @current_routes.sum(&:revenue)
@@ -124,8 +143,31 @@ module Engine
           true
         end
 
+        def skip_train
+          if no_president?
+            buy_train_no_president
+            return true
+          end
+
+          super
+        end
+
+        def skip_company
+          return true if no_president?
+
+          super
+        end
+
         def skip_token_or_track
+          return true if no_president?
+
           skip_track && skip_token
+        end
+
+        def can_buy_train?
+          return false if no_president? && @current_entity.trains.any?
+
+          super
         end
 
         def process_buy_company(action)
@@ -145,6 +187,75 @@ module Engine
             ", a 2 train, and a token on #{minor.coordinates}"
           @game.minors.delete(minor)
           @graph.clear
+        end
+
+        def process_bankrupt(action)
+          corp = action.entity
+          player = corp.owner
+
+          @log << "#{player.name} goes bankrupt and sells remaining shares"
+
+          # first, sell all normally allowed shares
+          player.shares_by_corporation.each do |corporation, _|
+            next unless corporation.share_price # if a corporation has not parred
+            next unless (bundle = sellable_bundles(player, corporation).max_by(&:price))
+
+            sell_shares(bundle)
+          end
+
+          # sell shares regardless of 50% and presidency restrictions
+          player.shares_by_corporation.each do |corporation, shares|
+            next unless corporation.share_price # if a corporation has not parred
+            next if shares.empty?
+
+            bundle = ShareBundle.new(shares)
+
+            sell_shares(bundle)
+
+            corporation.owner = @game.share_pool if corporation.owner == player
+          end
+
+          @game.minors.dup
+            .select { |minor| minor.owner == player }
+            .each { |minor| @game.close_corporation(minor, quiet: true) }
+
+          if player.companies.any?
+            @log << "#{player.name}'s companies close: #{player.companies.map(&:sym).join(', ')}"
+            player.companies.dup.each(&:close!)
+          end
+
+          @log << "#{@game.format_currency(player.cash)} is transferred from "\
+                  "#{player.name} to #{corp.name}"
+          player.spend(player.cash, corp) if player.cash.positive?
+
+          if no_president?
+            buy_train_no_president
+            next_step!
+          end
+
+          @game.declare_bankrupt(player)
+        end
+
+        def no_president?
+          @current_entity.owner == @game.share_pool
+        end
+
+        def buy_train_no_president
+          return unless no_president?
+          return unless @current_entity.trains.empty?
+
+          train = @depot.min_depot_train
+          name, variant = train.variants.min_by { |_, v| v[:price] }
+          price = variant[:price]
+
+          return if @current_entity.cash < price
+
+          process_buy_train(Action::BuyTrain.new(
+            @current_entity,
+            train: train,
+            price: price,
+            variant: name,
+          ))
         end
 
         def process_lay_tile(action)

@@ -60,7 +60,7 @@ module Engine
           return @game.end_game!
         end
 
-        raise GameError, "It is not #{entity.name}'s turn" unless can_act?(entity)
+        @game.game_error("It is not #{entity.name}'s turn") unless can_act?(entity)
 
         if action.pass?
           log_pass(entity)

@@ -29,6 +29,7 @@ module Engine
       SELL_AFTER = :p_any_operate
       SELL_BUY_ORDER = :sell_buy
       SELL_MOVEMENT = :left_block_pres
+      EBUY_OTHER_VALUE = false
       HOME_TOKEN_TIMING = :float
       MUST_BUY_TRAIN = :always
 
@@ -65,7 +66,7 @@ module Engine
       end
 
       def cert_limit
-        num_players = @players.size
+        num_players = all_players.size
         num_corps = @corporations.size
         case num_players
         when 3
@@ -229,8 +230,8 @@ module Engine
         end
       end
 
-      def close_corporation(corporation)
-        @log << "#{corporation.name} closes"
+      def close_corporation(corporation, quiet: false)
+        @log << "#{corporation.name} closes" unless quiet
 
         hexes.each do |hex|
           hex.tile.cities.each do |city|
@@ -270,6 +271,10 @@ module Engine
         Round::G1846::Operating.new(@minors + @corporations, game: self, round_num: round_num)
       end
 
+      def stock_round
+        Round::G1846::Stock.new(@players, game: self)
+      end
+
       def event_close_companies!
         super
 
@@ -301,7 +306,7 @@ module Engine
       end
 
       def bankruptcy_limit_reached?
-        @bankruptcies >= @players.size - 1
+        @bankrupt_players.size >= (all_players.size - 1)
       end
     end
   end

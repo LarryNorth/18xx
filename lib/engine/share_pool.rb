@@ -14,6 +14,10 @@ module Engine
       @log = game.log
     end
 
+    def companies
+      []
+    end
+
     def name
       'Sharepool'
     end
@@ -137,7 +141,7 @@ module Engine
 
       president = majority_share_holders
         .select { |p| p.num_shares_of(corporation) > 1 }
-        .min_by { |p| distance(previous_president, p) }
+        .min_by { |p| previous_president == self ? 0 : distance(previous_president, p) }
       return unless president
 
       corporation.owner = president
