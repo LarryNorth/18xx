@@ -32,7 +32,7 @@ module Engine
     class Base
       attr_reader :actions, :bank, :cert_limit, :cities, :companies, :corporations,
                   :depot, :finished, :graph, :hexes, :id, :loading, :log, :minors, :phase, :players, :operating_rounds,
-                  :round, :share_pool, :special, :stock_market, :tiles, :turn, :undo_possible, :redo_possible,
+                  :round, :share_pool, :stock_market, :tiles, :turn, :undo_possible, :redo_possible,
                   :round_history
       attr_accessor :bankruptcies
 
@@ -282,7 +282,6 @@ module Engine
 
         @round_history = []
         @round = init_round
-        @special = Round::Special.new(@companies, game: self)
 
         cache_objects
         connect_hexes
@@ -392,6 +391,7 @@ module Engine
       end
 
       def process_action(action)
+        puts action.to_h
         action = action_from_h(action) if action.is_a?(Hash)
         action.id = current_action_id
 
@@ -400,12 +400,7 @@ module Engine
           return clone(@actions)
         end
 
-        # company special power actions are processed by a different round handler
-        if action.entity.is_a?(Company)
-          @special.process_action(action)
-        else
-          @round.process_action(action)
-        end
+        @round.process_action(action)
 
         unless action.is_a?(Action::Message)
           @redo_possible = false
@@ -928,6 +923,7 @@ module Engine
         Round::Operating.new(self, [
           Step::Bankrupt,
           Step::DiscardTrain,
+          Step::CompanyTrack,
           Step::BuyCompany,
           Step::Track,
           Step::Token,

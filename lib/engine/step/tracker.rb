@@ -29,7 +29,7 @@ module Engine
         hex.lay(tile)
 
         @game.graph.clear
-        check_track_restrictions!(entity, old_tile, tile) unless @game.loading
+        check_track_restrictions!(entity, old_tile, tile)
         free = false
 
         entity.abilities(:tile_lay) do |ability|
@@ -113,6 +113,8 @@ module Engine
       end
 
       def check_track_restrictions!(entity, old_tile, new_tile)
+        return if @game.loading || !entity.corporation?
+
         old_paths = old_tile.paths
         changed_city = false
         used_new_track = old_paths.empty?

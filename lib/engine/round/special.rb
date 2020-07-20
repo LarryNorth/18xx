@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative '../action/assign'
-require_relative '../action/lay_tile'
 require_relative '../corporation'
 require_relative '../hex'
 require_relative '../player'
@@ -22,7 +21,6 @@ module Engine
 
         actions = []
         actions << 'assign' if can_assign_hex? || can_assign_corporation?
-        actions << 'lay_tile' if can_lay_track?
         actions << 'place_token' if can_place_token?
         actions
       end
@@ -99,9 +97,9 @@ module Engine
       def _process_action(action)
         company = action.entity
         case action
-        when Action::LayTile
-          lay_tile(action)
-          company.abilities(:tile_lay, &:use!)
+        #when Action::LayTile
+        #  lay_tile(action)
+        #  company.abilities(:tile_lay, &:use!)
         when Action::BuyShares
           owner = company.owner
           bundle = action.bundle
@@ -140,6 +138,8 @@ module Engine
             placed = true
           end
           raise GameError, "#{company.name} can't play token there" unless placed
+        else
+          raise
         end
         @game.round.clear_cache!
       end

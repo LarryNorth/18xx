@@ -2,6 +2,7 @@
 
 require_relative 'base'
 require_relative 'tracker'
+
 module Engine
   module Step
     class Track < Base

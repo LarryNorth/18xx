@@ -21,6 +21,7 @@ module Engine
         Round::Operating.new(self, [
           Step::Bankrupt,
           Step::DiscardTrain,
+          Step::CompanyTrack,
           Step::BuyCompany,
           Step::HomeToken,
           Step::Track,
